@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: int_weather__daily_aggregates
+    description: Hourly observations collapsed into daily summaries per city
+    columns:
+      - name: city_name
+        tests:
+          - not_null
+      - name: observation_date
+        tests:
+          - not_null

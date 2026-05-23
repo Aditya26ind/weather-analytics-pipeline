@@ -1,0 +1,32 @@
+# secrets
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+
+# dbt
+transform/target/
+transform/dbt_packages/
+transform/logs/
+
+# Docker
+.docker/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    name: Python Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and run ingestion unit tests
+        run: docker compose run --rm --build test-ingestion
+
+  integration:
+    name: Full Pipeline + dbt Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ingestion pipeline
+        run: docker compose up --build --abort-on-container-exit --exit-code-from ingestion postgres ingestion
+
+      - name: Run dbt models
+        run: docker compose run --rm --build -e DBT_PROFILES_DIR=/dbt dbt run
+
+      - name: Run dbt tests
+        run: docker compose run --rm -e DBT_PROFILES_DIR=/dbt dbt test
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

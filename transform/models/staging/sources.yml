@@ -1,0 +1,23 @@
+version: 2
+
+sources:
+  - name: raw
+    database: analytics
+    schema: raw
+    description: Raw tables written by the ingestion service
+    tables:
+      - name: weather_observations
+        description: Hourly weather observations from Open-Meteo for tracked cities
+        columns:
+          - name: id
+            description: Surrogate key (serial)
+          - name: city_name
+          - name: latitude
+          - name: longitude
+          - name: observed_at
+            description: Observation timestamp in UTC
+          - name: temperature_celsius
+          - name: precipitation_mm
+          - name: wind_speed_kmh
+          - name: ingested_at
+            description: When the row was written by the ingestion service

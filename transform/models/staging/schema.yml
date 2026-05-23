@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: stg_weather__observations
+    description: Cleaned and typed hourly weather observations
+    columns:
+      - name: observation_id
+        tests:
+          - unique
+          - not_null
+      - name: city_name
+        tests:
+          - not_null
+      - name: observed_at
+        tests:
+          - not_null
+      - name: temperature_celsius
+        tests:
+          - not_null

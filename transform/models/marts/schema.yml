@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: mart_weather__city_stats
+    description: Final analytics table — lifetime weather stats per tracked city
+    columns:
+      - name: city_name
+        tests:
+          - unique
+          - not_null
+      - name: days_tracked
+        tests:
+          - not_null
