@@ -25,8 +25,14 @@ jobs:
       - name: Run ingestion pipeline
         run: docker compose up --build --abort-on-container-exit --exit-code-from ingestion postgres ingestion
 
+      - name: Install dbt packages
+        run: docker compose run --rm --build -e DBT_PROFILES_DIR=/dbt dbt deps
+
       - name: Run dbt models
-        run: docker compose run --rm --build -e DBT_PROFILES_DIR=/dbt dbt run
+        run: docker compose run --rm -e DBT_PROFILES_DIR=/dbt dbt run
+
+      - name: Run dbt snapshot
+        run: docker compose run --rm -e DBT_PROFILES_DIR=/dbt dbt snapshot
 
       - name: Run dbt tests
         run: docker compose run --rm -e DBT_PROFILES_DIR=/dbt dbt test

@@ -19,11 +19,15 @@ clean-targets:
 models:
   weather_analytics:
     staging:
-      +materialized: view
+      +materialized: incremental
       +schema: staging
     intermediate:
-      +materialized: view
+      +materialized: incremental
       +schema: intermediate
     marts:
       +materialized: table
       +schema: marts
+
+snapshots:
+  weather_analytics:
+    +target_schema: snapshots

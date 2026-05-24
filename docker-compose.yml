@@ -52,5 +52,33 @@ services:
       WAREHOUSE_DB: ${WAREHOUSE_DB:-analytics}
       DBT_PROFILES_DIR: /dbt
 
+  airflow:
+    build:
+      context: ./orchestration
+    container_name: airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${WAREHOUSE_USER:-warehouse}:${WAREHOUSE_PASSWORD:-warehouse}@postgres:5432/airflow"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "dev-secret-change-in-prod"
+      WAREHOUSE_HOST: postgres
+      WAREHOUSE_PORT: "5432"
+      WAREHOUSE_USER: ${WAREHOUSE_USER:-warehouse}
+      WAREHOUSE_PASSWORD: ${WAREHOUSE_PASSWORD:-warehouse}
+      WAREHOUSE_DB: ${WAREHOUSE_DB:-analytics}
+      PAST_DAYS: ${PAST_DAYS:-7}
+      DBT_PROFILES_DIR: /dbt
+    volumes:
+      - ./orchestration/dags:/opt/airflow/dags:ro
+      - ./ingestion/src:/opt/ingestion_src:ro
+      - ./transform:/dbt
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+
 volumes:
   postgres_data:
+  airflow_logs:

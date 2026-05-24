@@ -1,5 +1,17 @@
+{{
+    config(
+        materialized='incremental',
+        unique_key='observation_id',
+        on_schema_change='sync_all_columns',
+    )
+}}
+
 WITH source AS (
     SELECT * FROM {{ source('raw', 'weather_observations') }}
+    {% if is_incremental() %}
+    -- only process rows ingested since the last run
+    WHERE ingested_at > (SELECT MAX(ingested_at) FROM {{ this }})
+    {% endif %}
 ),
 
 cleaned AS (

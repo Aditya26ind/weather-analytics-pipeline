@@ -1,5 +1,17 @@
+{{
+    config(
+        materialized='incremental',
+        unique_key=['city_name', 'observation_date'],
+        on_schema_change='sync_all_columns',
+    )
+}}
+
 WITH observations AS (
     SELECT * FROM {{ ref('stg_weather__observations') }}
+    {% if is_incremental() %}
+    -- recalculate the last 2 days to capture partial-day updates from the current run
+    WHERE observed_at::date >= (SELECT MAX(observation_date) - INTERVAL '1 day' FROM {{ this }})
+    {% endif %}
 )
 
 SELECT

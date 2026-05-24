@@ -1,6 +1,6 @@
 # Weather Analytics Pipeline
 
-An end-to-end data pipeline that ingests hourly weather observations from the [Open-Meteo](https://open-meteo.com/) API, loads them into a PostgreSQL warehouse, and transforms them into analytics-ready tables using dbt.
+An end-to-end data pipeline that ingests hourly weather observations from the [Open-Meteo](https://open-meteo.com/) API, loads them into a PostgreSQL warehouse, and transforms them through a dbt staging → intermediate → mart → snapshot layer. An Airflow DAG orchestrates the full pipeline on a daily schedule.
 
 ## Architecture
 
@@ -8,19 +8,35 @@ An end-to-end data pipeline that ingests hourly weather observations from the [O
 Open-Meteo API
      │
      ▼
-[Ingestion Service]  (Python / psycopg2)
-     │  raw.weather_observations
-     ▼
-[dbt – Staging]      stg_weather__observations
+[Ingestion Service]       Python / psycopg2 — upserts into raw.weather_observations
      │
      ▼
-[dbt – Intermediate] int_weather__daily_aggregates
+[dbt – Staging]           stg_weather__observations       (incremental)
      │
      ▼
-[dbt – Mart]         mart_weather__city_stats
+[dbt – Intermediate]      int_weather__daily_aggregates   (incremental)
+     │
+     ▼
+[dbt – Mart]              mart_weather__city_stats        (full table)
+     │
+     ▼
+[dbt – Snapshot]          city_stats_snapshot             (SCD Type 2)
+
+All steps orchestrated daily by Apache Airflow (LocalExecutor).
 ```
 
-All services run in Docker. Orchestration order is enforced by `docker-compose` health-checks and service dependencies.
+---
+
+## Tech Stack
+
+| Layer | Tool |
+|---|---|
+| Ingestion | Python 3.11, Requests, psycopg2 |
+| Warehouse | PostgreSQL 15 |
+| Transformation | dbt-core 1.7, dbt-postgres |
+| Orchestration | Apache Airflow 2.9 (LocalExecutor) |
+| Containerisation | Docker, Docker Compose |
+| CI | GitHub Actions |
 
 ---
 
@@ -31,19 +47,36 @@ All services run in Docker. Orchestration order is enforced by `docker-compose` 
 
 ---
 
-## Quick Start
+## Quick Start — one-shot run
 
 ```bash
-cp .env.example .env          # review / edit credentials if needed
-make pipeline                 # build images → ingest → dbt run
+cp .env.example .env   # review / edit credentials if needed
+make pipeline          # build images → ingest → dbt deps → dbt run → dbt snapshot
 ```
+
+## Quick Start — scheduled Airflow
+
+```bash
+cp .env.example .env
+make airflow           # starts warehouse + Airflow (webserver + scheduler)
+```
+
+Open **http://localhost:8080**, log in with the credentials printed in the container logs, and enable the `weather_pipeline` DAG. It runs daily and chains:
+
+`ingest → dbt deps → dbt run → dbt snapshot → dbt test`
+
+---
+
+## Makefile Commands
 
 | Command | What it does |
 |---|---|
 | `make up` | Start only the PostgreSQL warehouse |
-| `make pipeline` | Full run: warehouse → ingestion → dbt |
+| `make airflow` | Start warehouse + Airflow webserver/scheduler |
+| `make pipeline` | Full one-shot run: warehouse → ingestion → dbt |
 | `make ingest` | Run ingestion step only |
-| `make transform` | Run `dbt run` only |
+| `make transform` | Run `dbt deps` + `dbt run` |
+| `make snapshot` | Run `dbt snapshot` |
 | `make test` | Python unit tests + dbt schema tests |
 | `make test-python` | Python unit tests (no DB required) |
 | `make test-dbt` | dbt schema / data tests |
@@ -64,7 +97,29 @@ Copy `.env.example` to `.env` and adjust as needed.
 | `WAREHOUSE_USER` | `warehouse` | Database user |
 | `WAREHOUSE_PASSWORD` | `warehouse` | Database password |
 | `WAREHOUSE_DB` | `analytics` | Database name |
-| `PAST_DAYS` | `7` | How many days of historical data to fetch per run |
+| `PAST_DAYS` | `7` | Days of historical data to fetch per run |
+
+---
+
+## Orchestration — Airflow DAG
+
+**Location:** `orchestration/`
+
+The `weather_pipeline` DAG runs on a `@daily` schedule with one retry per task (5-minute delay).
+
+```
+ingest ──► dbt_deps ──► dbt_run ──► dbt_snapshot ──► dbt_test
+```
+
+| Task | Type | What it does |
+|---|---|---|
+| `ingest` | PythonOperator | Fetches weather data and upserts into the raw table |
+| `dbt_deps` | BashOperator | Installs dbt package dependencies |
+| `dbt_run` | BashOperator | Runs all dbt models (incremental where applicable) |
+| `dbt_snapshot` | BashOperator | Updates SCD Type 2 snapshot of city stats |
+| `dbt_test` | BashOperator | Runs all dbt schema and data quality tests |
+
+Airflow metadata is stored in a dedicated `airflow` database on the same PostgreSQL instance.
 
 ---
 
@@ -72,7 +127,7 @@ Copy `.env.example` to `.env` and adjust as needed.
 
 **Location:** `ingestion/`
 
-Fetches hourly weather data from the Open-Meteo forecast API for five cities and upserts it into `raw.weather_observations`.
+Fetches hourly weather data from the Open-Meteo forecast API for five cities and upserts into `raw.weather_observations`.
 
 ### Tracked Cities
 
@@ -84,33 +139,7 @@ Fetches hourly weather data from the Open-Meteo forecast API for five cities and
 | Sydney | -33.8688 | 151.2093 |
 | Mumbai | 19.0760 | 72.8777 |
 
-### API Input
-
-Calls `GET https://api.open-meteo.com/v1/forecast` with:
-
-| Parameter | Value |
-|---|---|
-| `latitude` / `longitude` | City coordinates |
-| `hourly` | `temperature_2m, precipitation, wind_speed_10m` |
-| `past_days` | Value of `PAST_DAYS` env var (default `7`) |
-| `forecast_days` | `1` |
-| `timezone` | `UTC` |
-
-### Raw Table Output — `raw.weather_observations`
-
-| Column | Type | Description |
-|---|---|---|
-| `id` | `BIGSERIAL` | Surrogate primary key |
-| `city_name` | `VARCHAR(100)` | City name |
-| `latitude` | `DOUBLE PRECISION` | Latitude of the city |
-| `longitude` | `DOUBLE PRECISION` | Longitude of the city |
-| `observed_at` | `TIMESTAMP` | Observation timestamp (UTC) |
-| `temperature_celsius` | `DOUBLE PRECISION` | Air temperature at 2 m |
-| `precipitation_mm` | `DOUBLE PRECISION` | Precipitation amount |
-| `wind_speed_kmh` | `DOUBLE PRECISION` | Wind speed at 10 m |
-| `ingested_at` | `TIMESTAMP` | When the row was written (default `NOW()`) |
-
-Rows are upserted on `(city_name, observed_at)` — re-running the ingestion is idempotent.
+Rows are upserted on `(city_name, observed_at)` — re-running ingestion is idempotent.
 
 ---
 
@@ -118,93 +147,56 @@ Rows are upserted on `(city_name, observed_at)` — re-running the ingestion is 
 
 **Location:** `transform/`
 
-Three-layer dbt project following the staging → intermediate → mart pattern.
+Three-layer dbt project following the staging → intermediate → mart pattern, plus a snapshot layer for historical tracking.
 
-### Layer 1 — Staging: `stg_weather__observations`
+### Layer 1 — Staging: `stg_weather__observations` *(incremental)*
 
-**Input:** `raw.weather_observations`
+**Input:** `raw.weather_observations`  
+**Incremental key:** `ingested_at` — only processes rows ingested since the last run.
 
-Cleans and types the raw data:
-- Renames `id` → `observation_id`
-- Casts `observed_at` to `TIMESTAMP`
-- Coalesces `NULL` precipitation and wind values to `0.0`
-- Filters out rows where `observed_at` or `temperature_celsius` is `NULL`
+Cleans and types the raw data: renames `id` → `observation_id`, casts timestamps, coalesces nulls to `0.0`, and filters invalid rows.
 
-**Output columns:**
+### Layer 2 — Intermediate: `int_weather__daily_aggregates` *(incremental)*
 
-| Column | Type | Description |
-|---|---|---|
-| `observation_id` | `BIGINT` | Surrogate key (unique, not null) |
-| `city_name` | `VARCHAR` | City name |
-| `latitude` | `DOUBLE PRECISION` | City latitude |
-| `longitude` | `DOUBLE PRECISION` | City longitude |
-| `observed_at` | `TIMESTAMP` | Observation timestamp (UTC) |
-| `temperature_celsius` | `DOUBLE PRECISION` | Temperature at 2 m |
-| `precipitation_mm` | `DOUBLE PRECISION` | Precipitation (nulls replaced with 0) |
-| `wind_speed_kmh` | `DOUBLE PRECISION` | Wind speed (nulls replaced with 0) |
-| `ingested_at` | `TIMESTAMP` | Original ingestion timestamp |
+**Input:** `stg_weather__observations`  
+**Incremental key:** `(city_name, observation_date)` — recalculates the last 2 days to capture partial-day updates from the current run.
 
----
+Collapses hourly readings into one row per city per day (avg/min/max temp, total precipitation, avg wind speed, reading count).
 
-### Layer 2 — Intermediate: `int_weather__daily_aggregates`
-
-**Input:** `stg_weather__observations`
-
-Collapses hourly readings into one row per city per day.
-
-**Output columns:**
-
-| Column | Type | Description |
-|---|---|---|
-| `city_name` | `VARCHAR` | City name |
-| `observation_date` | `DATE` | Calendar date of the observations |
-| `avg_temp_celsius` | `NUMERIC` | Average hourly temperature for the day |
-| `max_temp_celsius` | `NUMERIC` | Highest hourly temperature for the day |
-| `min_temp_celsius` | `NUMERIC` | Lowest hourly temperature for the day |
-| `total_precipitation_mm` | `NUMERIC` | Total precipitation for the day |
-| `avg_wind_speed_kmh` | `NUMERIC` | Average hourly wind speed for the day |
-| `hourly_readings` | `BIGINT` | Count of hourly records that make up this day |
-
----
-
-### Layer 3 — Mart: `mart_weather__city_stats`
+### Layer 3 — Mart: `mart_weather__city_stats` *(table)*
 
 **Input:** `int_weather__daily_aggregates`
 
-Produces one summary row per city covering the full tracking window.
+One summary row per city covering the full tracking window: lifetime temperature extremes, total precipitation, average conditions, and all-time temperature range.
 
-**Output columns:**
+### Layer 4 — Snapshot: `city_stats_snapshot` *(SCD Type 2)*
 
-| Column | Type | Description |
-|---|---|---|
-| `city_name` | `VARCHAR` | City name (unique, not null) |
-| `days_tracked` | `BIGINT` | Number of distinct calendar days with data |
-| `tracking_start_date` | `DATE` | Earliest observation date |
-| `tracking_end_date` | `DATE` | Most recent observation date |
-| `avg_temp_celsius` | `NUMERIC` | Mean of daily average temperatures |
-| `all_time_max_temp_celsius` | `NUMERIC` | Highest temperature ever recorded |
-| `all_time_min_temp_celsius` | `NUMERIC` | Lowest temperature ever recorded |
-| `total_precipitation_mm` | `NUMERIC` | Total precipitation across all tracked days |
-| `avg_wind_speed_kmh` | `NUMERIC` | Mean of daily average wind speeds |
-| `temp_range_celsius` | `NUMERIC` | All-time temperature range (max − min) |
+**Input:** `mart_weather__city_stats`  
+**Strategy:** `check` on all columns.
 
-Results are ordered alphabetically by `city_name`.
+Each time a city's aggregate stats change, dbt closes the previous record (`dbt_valid_to`) and inserts a new open record (`dbt_valid_from = now()`). This gives a full audit trail of how each city's metrics evolved over time — useful for answering questions like *"What was London's all-time max temp as of last Tuesday?"*
 
 ---
 
 ## Data Flow Summary
 
 ```
-Open-Meteo API  ──►  raw.weather_observations  ──►  stg_weather__observations
-                           (hourly rows)               (cleaned, typed)
-                                                              │
-                                                              ▼
-                                              int_weather__daily_aggregates
-                                                      (1 row / city / day)
-                                                              │
-                                                              ▼
-                                                mart_weather__city_stats
-                                                    (1 row / city, all-time)
+Open-Meteo API
+       │
+       ▼
+raw.weather_observations   (hourly, upserted)
+       │
+       ▼  incremental on ingested_at
+stg_weather__observations  (cleaned, typed)
+       │
+       ▼  incremental on (city_name, observation_date)
+int_weather__daily_aggregates  (1 row / city / day)
+       │
+       ▼  full table rebuild
+mart_weather__city_stats   (1 row / city, all-time stats)
+       │
+       ▼  SCD Type 2 snapshot
+city_stats_snapshot        (full history of city stats changes)
 ```
 
 ---
@@ -215,16 +207,23 @@ Open-Meteo API  ──►  raw.weather_observations  ──►  stg_weather__obs
 weather-analytics-pipeline/
 ├── ingestion/
 │   ├── src/
-│   │   ├── clients/open_meteo.py   # Open-Meteo API client
-│   │   ├── loaders/warehouse.py    # PostgreSQL upsert loader
-│   │   ├── pipelines/weather.py    # Orchestrates fetch → load
-│   │   └── config.py               # Config from env vars
-│   └── tests/                      # Python unit tests
+│   │   ├── clients/open_meteo.py      # Open-Meteo API client
+│   │   ├── loaders/warehouse.py       # PostgreSQL upsert loader
+│   │   ├── pipelines/weather.py       # Orchestrates fetch → load
+│   │   └── config.py                  # Config from env vars
+│   └── tests/                         # Python unit tests
+├── orchestration/
+│   ├── dags/weather_pipeline.py       # Airflow DAG (daily schedule)
+│   ├── Dockerfile                     # Airflow image with dbt + ingestion deps
+│   └── requirements.txt
 ├── transform/
-│   └── models/
-│       ├── staging/                # stg_weather__observations
-│       ├── intermediate/           # int_weather__daily_aggregates
-│       └── marts/                  # mart_weather__city_stats
+│   ├── models/
+│   │   ├── staging/                   # stg_weather__observations (incremental)
+│   │   ├── intermediate/              # int_weather__daily_aggregates (incremental)
+│   │   └── marts/                     # mart_weather__city_stats (table)
+│   └── snapshots/
+│       └── city_stats_snapshot.sql    # SCD Type 2 history of city stats
+├── .github/workflows/ci.yml           # CI: unit tests + full pipeline + dbt tests
 ├── docker-compose.yml
 ├── Makefile
 └── .env.example
