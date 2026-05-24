@@ -11,7 +11,10 @@ SELECT
     MAX(max_temp_celsius)                             AS all_time_max_temp_celsius,
     MIN(min_temp_celsius)                             AS all_time_min_temp_celsius,
     ROUND(SUM(total_precipitation_mm)::numeric, 2)    AS total_precipitation_mm,
-    ROUND(AVG(avg_wind_speed_kmh)::numeric, 2)        AS avg_wind_speed_kmh
+    ROUND(AVG(avg_wind_speed_kmh)::numeric, 2)        AS avg_wind_speed_kmh,
+    ROUND(
+        (MAX(max_temp_celsius) - MIN(min_temp_celsius))::numeric, 2
+    )                                                  AS temp_range_celsius
 FROM daily
 GROUP BY city_name
 ORDER BY city_name

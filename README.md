@@ -186,6 +186,7 @@ Produces one summary row per city covering the full tracking window.
 | `all_time_min_temp_celsius` | `NUMERIC` | Lowest temperature ever recorded |
 | `total_precipitation_mm` | `NUMERIC` | Total precipitation across all tracked days |
 | `avg_wind_speed_kmh` | `NUMERIC` | Mean of daily average wind speeds |
+| `temp_range_celsius` | `NUMERIC` | All-time temperature range (max − min) |
 
 Results are ordered alphabetically by `city_name`.
 

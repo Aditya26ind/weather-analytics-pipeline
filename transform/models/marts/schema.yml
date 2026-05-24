@@ -11,3 +11,7 @@ models:
       - name: days_tracked
         tests:
           - not_null
+      - name: temp_range_celsius
+        description: All-time temperature range (max - min) across tracked days
+        tests:
+          - not_null
