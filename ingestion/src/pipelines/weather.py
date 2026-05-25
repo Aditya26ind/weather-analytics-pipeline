@@ -2,6 +2,7 @@ from ..clients.open_meteo import OpenMeteoClient
 from ..config import Config
 from ..loaders.warehouse import WarehouseLoader
 from ..logger import get_logger
+from ..metrics import ROWS_LOADED, PIPELINE_ERRORS
 
 logger = get_logger(__name__)
 
@@ -26,8 +27,11 @@ class WeatherPipeline:
                         longitude=city.longitude,
                         past_days=self._config.past_days,
                     )
-                    total += loader.load(observations)
+                    rows = loader.load(observations)
+                    total += rows
+                    ROWS_LOADED.inc(rows)
                 except Exception:
+                    PIPELINE_ERRORS.inc()
                     logger.exception("Failed to process city=%s — continuing", city.name)
 
         logger.info("Pipeline complete. Total rows loaded: %d", total)

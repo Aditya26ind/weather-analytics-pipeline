@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
 from typing import List
+from typing import Optional
 
 
 @dataclass
@@ -19,6 +20,7 @@ class Config:
     warehouse_db: str
     past_days: int
     cities: List[CityConfig] = field(default_factory=list)
+    metrics_port: Optional[int] = None
 
 
 def load_config() -> Config:
@@ -36,4 +38,5 @@ def load_config() -> Config:
             CityConfig("Sydney", -33.8688, 151.2093),
             CityConfig("Mumbai", 19.0760, 72.8777),
         ],
+        metrics_port=(int(os.environ.get("METRICS_PORT")) if os.environ.get("METRICS_PORT") else None),
     )
