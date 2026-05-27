@@ -49,20 +49,11 @@ models:
         tests:
           - not_null
       - name: hottest_rank
-        tests:
-          - dbt_utils.accepted_range:
-              min_value: 1
-              max_value: 5
+        description: Rank within city by max daily temperature (1 = hottest); may exceed 5 when row qualifies via another category
       - name: coldest_rank
-        tests:
-          - dbt_utils.accepted_range:
-              min_value: 1
-              max_value: 5
+        description: Rank within city by min daily temperature (1 = coldest); may exceed 5 when row qualifies via another category
       - name: wettest_rank
-        tests:
-          - dbt_utils.accepted_range:
-              min_value: 1
-              max_value: 5
+        description: Rank within city by total daily precipitation (1 = wettest); may exceed 5 when row qualifies via another category
       - name: is_notable_day
         tests:
           - not_null
