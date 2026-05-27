@@ -37,6 +37,11 @@ def load_config() -> Config:
             CityConfig("Tokyo", 35.6762, 139.6503),
             CityConfig("Sydney", -33.8688, 151.2093),
             CityConfig("Mumbai", 19.0760, 72.8777),
+            CityConfig("Paris", 48.8566, 2.3522),
+            CityConfig("Berlin", 52.5200, 13.4050),
+            CityConfig("Singapore", 1.3521, 103.8198),
+            CityConfig("Dubai", 25.2048, 55.2708),
+            CityConfig("Sao Paulo", -23.5505, -46.6333),
         ],
         metrics_port=(int(os.environ.get("METRICS_PORT")) if os.environ.get("METRICS_PORT") else None),
     )

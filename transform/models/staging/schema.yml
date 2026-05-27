@@ -17,3 +17,24 @@ models:
       - name: temperature_celsius
         tests:
           - not_null
+      - name: apparent_temperature
+        description: Feels-like temperature accounting for wind and humidity (°C)
+        tests:
+          - not_null
+      - name: relative_humidity_pct
+        description: Relative humidity percentage (0–100)
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      - name: precipitation_mm
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: wind_speed_kmh
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0

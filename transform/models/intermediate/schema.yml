@@ -10,3 +10,28 @@ models:
       - name: observation_date
         tests:
           - not_null
+      - name: avg_temp_celsius
+        tests:
+          - not_null
+      - name: avg_apparent_temp_celsius
+        description: Daily average feels-like temperature (°C)
+        tests:
+          - not_null
+      - name: avg_relative_humidity_pct
+        description: Daily average relative humidity (%)
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      - name: total_precipitation_mm
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: hourly_readings
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 24

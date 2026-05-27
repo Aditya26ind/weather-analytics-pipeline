@@ -29,6 +29,8 @@ def _make_observation(**overrides):
         longitude=-74.0,
         observed_at=datetime(2024, 1, 1, 12, 0),
         temperature_celsius=20.0,
+        apparent_temperature=18.5,
+        relative_humidity_pct=65.0,
         precipitation_mm=0.5,
         wind_speed_kmh=10.0,
     )
@@ -63,11 +65,13 @@ def test_setup_creates_schema_and_table(mock_connect):
     loader.connect()
     loader.setup()
 
-    assert mock_cur.execute.call_count == 2
+    assert mock_cur.execute.call_count == 3
     first_sql = mock_cur.execute.call_args_list[0][0][0]
     assert "CREATE SCHEMA" in first_sql
     second_sql = mock_cur.execute.call_args_list[1][0][0]
     assert "CREATE TABLE" in second_sql
+    third_sql = mock_cur.execute.call_args_list[2][0][0]
+    assert "ALTER TABLE" in third_sql
     mock_conn.commit.assert_called_once()
 
 

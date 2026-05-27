@@ -29,6 +29,8 @@ class WeatherObservation:
     longitude: float
     observed_at: datetime
     temperature_celsius: float
+    apparent_temperature: float
+    relative_humidity_pct: float
     precipitation_mm: float
     wind_speed_kmh: float
 
@@ -65,7 +67,7 @@ class OpenMeteoClient:
         params = {
             "latitude": latitude,
             "longitude": longitude,
-            "hourly": "temperature_2m,precipitation,wind_speed_10m",
+            "hourly": "temperature_2m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m",
             "past_days": past_days,
             "forecast_days": 1,
             "timezone": "UTC",
@@ -74,26 +76,28 @@ class OpenMeteoClient:
         data = self._get_with_retries(params=params, city_name=city_name)
         hourly = data.get("hourly", {})
 
-        observations = []
-        for ts, temp, precip, wind in zip(
-            hourly.get("time", []),
-            hourly.get("temperature_2m", []),
-            hourly.get("precipitation", []),
-            hourly.get("wind_speed_10m", []),
-        ):
-            if temp is None:
-                continue
-            observations.append(
-                WeatherObservation(
-                    city_name=city_name,
-                    latitude=latitude,
-                    longitude=longitude,
-                    observed_at=datetime.fromisoformat(ts),
-                    temperature_celsius=temp,
-                    precipitation_mm=precip or 0.0,
-                    wind_speed_kmh=wind or 0.0,
-                )
+        observations = [
+            WeatherObservation(
+                city_name=city_name,
+                latitude=latitude,
+                longitude=longitude,
+                observed_at=datetime.fromisoformat(ts),
+                temperature_celsius=temp,
+                apparent_temperature=apparent or temp,
+                relative_humidity_pct=float(humidity or 0),
+                precipitation_mm=precip or 0.0,
+                wind_speed_kmh=wind or 0.0,
             )
+            for ts, temp, apparent, humidity, precip, wind in zip(
+                hourly.get("time", []),
+                hourly.get("temperature_2m", []),
+                hourly.get("apparent_temperature", []),
+                hourly.get("relative_humidity_2m", []),
+                hourly.get("precipitation", []),
+                hourly.get("wind_speed_10m", []),
+            )
+            if temp is not None
+        ]
 
         OBSERVATIONS_FETCHED.labels(city=city_name).inc(len(observations))
         logger.info("Fetched %d observations for %s", len(observations), city_name)

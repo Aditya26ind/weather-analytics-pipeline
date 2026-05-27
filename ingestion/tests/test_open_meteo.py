@@ -10,6 +10,8 @@ MOCK_RESPONSE = {
     "hourly": {
         "time": ["2024-01-01T00:00", "2024-01-01T01:00", "2024-01-01T02:00"],
         "temperature_2m": [10.5, 11.0, None],
+        "apparent_temperature": [9.0, 10.0, None],
+        "relative_humidity_2m": [80, 75, 70],
         "precipitation": [0.0, 1.2, 0.5],
         "wind_speed_10m": [5.0, None, 8.0],
     }
@@ -40,6 +42,8 @@ def test_observation_fields():
     assert first.latitude == 40.0
     assert first.longitude == -74.0
     assert first.temperature_celsius == 10.5
+    assert first.apparent_temperature == 9.0
+    assert first.relative_humidity_pct == 80.0
     assert first.precipitation_mm == 0.0
     assert first.wind_speed_kmh == 5.0
     assert isinstance(first.observed_at, datetime)
@@ -64,6 +68,8 @@ def test_api_called_with_correct_params():
     assert params["longitude"] == -0.1
     assert params["past_days"] == 3
     assert "temperature_2m" in params["hourly"]
+    assert "apparent_temperature" in params["hourly"]
+    assert "relative_humidity_2m" in params["hourly"]
 
 
 def test_empty_hourly_data():
@@ -71,6 +77,8 @@ def test_empty_hourly_data():
         "hourly": {
             "time": [],
             "temperature_2m": [],
+            "apparent_temperature": [],
+            "relative_humidity_2m": [],
             "precipitation": [],
             "wind_speed_10m": [],
         }

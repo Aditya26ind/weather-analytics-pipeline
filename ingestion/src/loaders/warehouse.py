@@ -13,29 +13,54 @@ _CREATE_SCHEMA = "CREATE SCHEMA IF NOT EXISTS raw;"
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS raw.weather_observations (
-    id             BIGSERIAL PRIMARY KEY,
-    city_name      VARCHAR(100)  NOT NULL,
-    latitude       DOUBLE PRECISION NOT NULL,
-    longitude      DOUBLE PRECISION NOT NULL,
-    observed_at    TIMESTAMP     NOT NULL,
+    id                   BIGSERIAL PRIMARY KEY,
+    city_name            VARCHAR(100)     NOT NULL,
+    latitude             DOUBLE PRECISION NOT NULL,
+    longitude            DOUBLE PRECISION NOT NULL,
+    observed_at          TIMESTAMP        NOT NULL,
     temperature_celsius  DOUBLE PRECISION,
+    apparent_temperature DOUBLE PRECISION,
+    relative_humidity_pct DOUBLE PRECISION,
     precipitation_mm     DOUBLE PRECISION,
     wind_speed_kmh       DOUBLE PRECISION,
-    ingested_at    TIMESTAMP     DEFAULT NOW(),
+    ingested_at          TIMESTAMP        DEFAULT NOW(),
     UNIQUE (city_name, observed_at)
 );
+"""
+
+_ADD_COLUMNS = """
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'raw' AND table_name = 'weather_observations'
+          AND column_name = 'apparent_temperature'
+    ) THEN
+        ALTER TABLE raw.weather_observations ADD COLUMN apparent_temperature DOUBLE PRECISION;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'raw' AND table_name = 'weather_observations'
+          AND column_name = 'relative_humidity_pct'
+    ) THEN
+        ALTER TABLE raw.weather_observations ADD COLUMN relative_humidity_pct DOUBLE PRECISION;
+    END IF;
+END$$;
 """
 
 _UPSERT = """
 INSERT INTO raw.weather_observations
     (city_name, latitude, longitude, observed_at,
-     temperature_celsius, precipitation_mm, wind_speed_kmh)
+     temperature_celsius, apparent_temperature, relative_humidity_pct,
+     precipitation_mm, wind_speed_kmh)
 VALUES %s
 ON CONFLICT (city_name, observed_at) DO UPDATE SET
-    temperature_celsius = EXCLUDED.temperature_celsius,
-    precipitation_mm    = EXCLUDED.precipitation_mm,
-    wind_speed_kmh      = EXCLUDED.wind_speed_kmh,
-    ingested_at         = NOW();
+    temperature_celsius   = EXCLUDED.temperature_celsius,
+    apparent_temperature  = EXCLUDED.apparent_temperature,
+    relative_humidity_pct = EXCLUDED.relative_humidity_pct,
+    precipitation_mm      = EXCLUDED.precipitation_mm,
+    wind_speed_kmh        = EXCLUDED.wind_speed_kmh,
+    ingested_at           = NOW();
 """
 
 
@@ -64,6 +89,7 @@ class WarehouseLoader:
         with self._conn.cursor() as cur:
             cur.execute(_CREATE_SCHEMA)
             cur.execute(_CREATE_TABLE)
+            cur.execute(_ADD_COLUMNS)
         self._conn.commit()
         logger.info("Schema and table initialised")
 
@@ -75,7 +101,8 @@ class WarehouseLoader:
         rows = [
             (
                 o.city_name, o.latitude, o.longitude, o.observed_at,
-                o.temperature_celsius, o.precipitation_mm, o.wind_speed_kmh,
+                o.temperature_celsius, o.apparent_temperature, o.relative_humidity_pct,
+                o.precipitation_mm, o.wind_speed_kmh,
             )
             for o in observations
         ]

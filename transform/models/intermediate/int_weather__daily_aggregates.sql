@@ -16,13 +16,17 @@ WITH observations AS (
 
 SELECT
     city_name,
-    observed_at::date                               AS observation_date,
-    ROUND(AVG(temperature_celsius)::numeric, 2)     AS avg_temp_celsius,
-    ROUND(MAX(temperature_celsius)::numeric, 2)     AS max_temp_celsius,
-    ROUND(MIN(temperature_celsius)::numeric, 2)     AS min_temp_celsius,
-    ROUND(SUM(precipitation_mm)::numeric, 2)        AS total_precipitation_mm,
-    ROUND(AVG(wind_speed_kmh)::numeric, 2)          AS avg_wind_speed_kmh,
-    COUNT(*)                                        AS hourly_readings
+    observed_at::date                                       AS observation_date,
+    ROUND(AVG(temperature_celsius)::numeric, 2)             AS avg_temp_celsius,
+    ROUND(MAX(temperature_celsius)::numeric, 2)             AS max_temp_celsius,
+    ROUND(MIN(temperature_celsius)::numeric, 2)             AS min_temp_celsius,
+    ROUND(AVG(apparent_temperature)::numeric, 2)            AS avg_apparent_temp_celsius,
+    ROUND(MAX(apparent_temperature)::numeric, 2)            AS max_apparent_temp_celsius,
+    ROUND(MIN(apparent_temperature)::numeric, 2)            AS min_apparent_temp_celsius,
+    ROUND(AVG(relative_humidity_pct)::numeric, 2)           AS avg_relative_humidity_pct,
+    ROUND(SUM(precipitation_mm)::numeric, 2)                AS total_precipitation_mm,
+    ROUND(AVG(wind_speed_kmh)::numeric, 2)                  AS avg_wind_speed_kmh,
+    COUNT(*)                                                AS hourly_readings
 FROM observations
 GROUP BY
     city_name,

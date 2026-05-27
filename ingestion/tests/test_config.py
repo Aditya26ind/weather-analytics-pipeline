@@ -16,7 +16,7 @@ def test_defaults():
     assert cfg.warehouse_password == "warehouse"
     assert cfg.warehouse_db == "analytics"
     assert cfg.past_days == 7
-    assert len(cfg.cities) == 5
+    assert len(cfg.cities) == 10
 
 
 def test_env_override(monkeypatch):
@@ -46,3 +46,8 @@ def test_city_names():
     assert "New York" in names
     assert "London" in names
     assert "Tokyo" in names
+    assert "Paris" in names
+    assert "Berlin" in names
+    assert "Singapore" in names
+    assert "Dubai" in names
+    assert "Sao Paulo" in names

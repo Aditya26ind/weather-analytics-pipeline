@@ -16,14 +16,17 @@ WITH source AS (
 
 cleaned AS (
     SELECT
-        id                              AS observation_id,
+        id                                          AS observation_id,
         city_name,
         latitude,
         longitude,
-        observed_at::timestamp          AS observed_at,
+        observed_at::timestamp                      AS observed_at,
         temperature_celsius,
-        COALESCE(precipitation_mm, 0.0) AS precipitation_mm,
-        COALESCE(wind_speed_kmh, 0.0)   AS wind_speed_kmh,
+        COALESCE(apparent_temperature, temperature_celsius)
+                                                    AS apparent_temperature,
+        COALESCE(relative_humidity_pct, 0.0)        AS relative_humidity_pct,
+        COALESCE(precipitation_mm, 0.0)             AS precipitation_mm,
+        COALESCE(wind_speed_kmh, 0.0)               AS wind_speed_kmh,
         ingested_at
     FROM source
     WHERE observed_at         IS NOT NULL

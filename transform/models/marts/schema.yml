@@ -11,7 +11,58 @@ models:
       - name: days_tracked
         tests:
           - not_null
+          - dbt_utils.accepted_range:
+              min_value: 1
       - name: temp_range_celsius
         description: All-time temperature range (max - min) across tracked days
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+      - name: avg_apparent_temp_celsius
+        description: Average feels-like temperature across all tracked days (°C)
+        tests:
+          - not_null
+      - name: avg_relative_humidity_pct
+        description: Average relative humidity across all tracked days (%)
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      - name: total_precipitation_mm
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+
+  - name: mart_weather__extreme_days
+    description: >
+      Top-5 extreme weather days per city across five dimensions: hottest,
+      coldest, wettest, most humid, and windiest. A day may appear multiple
+      times if it ranks in more than one category.
+    columns:
+      - name: city_name
+        tests:
+          - not_null
+      - name: observation_date
+        tests:
+          - not_null
+      - name: hottest_rank
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 5
+      - name: coldest_rank
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 5
+      - name: wettest_rank
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 1
+              max_value: 5
+      - name: is_notable_day
         tests:
           - not_null
