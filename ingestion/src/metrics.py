@@ -1,7 +1,7 @@
 from prometheus_client import Counter, start_http_server
 from typing import Optional
 import threading
-
+ 
 # Prometheus metrics
 API_REQUESTS = Counter("open_meteo_api_requests_total", "Total Open-Meteo API requests", ["city"])  # type: ignore
 API_ERRORS = Counter("open_meteo_api_errors_total", "Total Open-Meteo API errors", ["city"])  # type: ignore

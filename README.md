@@ -66,6 +66,7 @@ Open **http://localhost:8080**, log in with the credentials printed in the conta
 `ingest → dbt deps → dbt run → dbt snapshot → dbt test`
 
 ---
+psql -h localhost -p 5433 -U warehouse -d analytics
 
 ## Makefile Commands
 
