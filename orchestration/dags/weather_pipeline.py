@@ -45,15 +45,15 @@ def _discover_pipeline_classes() -> list[tuple[str, type]]:
 
 
 @dag(
-    dag_id="weather_pipeline",
-    description="Ingest data from all discovered pipelines and run dbt transformations",
+    dag_id="ingestion_pipeline",
+    description="Auto-discover and run all ingestion pipelines, then transform with dbt",
     schedule="@daily",
     start_date=datetime(2024, 1, 1),
     catchup=False,
     default_args=DEFAULT_ARGS,
-    tags=["weather", "etl"],
+    tags=["ingestion", "dbt", "etl"],
 )
-def weather_pipeline():
+def ingestion_pipeline():
     dbt_deps = BashOperator(
         task_id="dbt_deps",
         bash_command=DBT_CMD.format(subcmd="deps"),
@@ -89,4 +89,4 @@ def weather_pipeline():
     ingest_tasks >> dbt_deps >> dbt_run >> dbt_snapshot >> dbt_test
 
 
-weather_pipeline()
+ingestion_pipeline()
